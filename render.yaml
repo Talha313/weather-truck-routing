@@ -1,0 +1,20 @@
+# One-click backend deploy on Render (Blueprint). The frontend deploys to Vercel/Netlify.
+services:
+  - type: web
+    name: weather-truck-routing-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn config.wsgi --workers 2 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/health/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: .onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
