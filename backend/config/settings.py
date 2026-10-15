@@ -88,6 +88,12 @@ OSRM_URL = os.environ.get("OSRM_URL", "https://router.project-osrm.org/route/v1/
 PHOTON_URL = os.environ.get("PHOTON_URL", "https://photon.komoot.io/api/")
 OPEN_METEO_URL = os.environ.get("OPEN_METEO_URL", "https://api.open-meteo.com/v1/forecast")
 
+# Open-Meteo's free tier counts every location as one request and limits requests per IP.
+# Hosts with shared outbound IPs (e.g. PythonAnywhere) should use fewer heatmap cells and a
+# longer cache to stay under the limits.
+WEATHER_CACHE_TTL_S = int(os.environ.get("WEATHER_CACHE_TTL_S", str(30 * 60)))
+HEATMAP_MAX_CELLS = int(os.environ.get("HEATMAP_MAX_CELLS", "260"))
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

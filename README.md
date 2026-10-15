@@ -129,6 +129,8 @@ Validation errors return 400 with field messages. Failures of the routing, weath
 
 **Backend (Render):** `render.yaml` is a Render Blueprint. After the first deploy, set `CORS_ALLOWED_ORIGINS` to the frontend URL. Any host that runs gunicorn works (`Procfile` included). Environment variables are listed in `backend/.env.example`.
 
+**Backend (PythonAnywhere):** manual-config web app with Python 3.11, source `backend/`, settings module `config.settings`. Put the settings in `backend/.env` (it is read on startup). No database or static files, so skip `migrate` and `collectstatic`. Free accounts can only reach allow-listed hosts: Valhalla is blocked, so routing falls back to OSRM (car profile, load weight still applies to risk). All free accounts share outbound IPs, which share Open-Meteo's per-IP limit, so set `HEATMAP_MAX_CELLS=100` and `WEATHER_CACHE_TTL_S=10800` to cut weather requests per trip by about half.
+
 **Frontend (Vercel / Netlify):** root `frontend`, build `npm run build`, output `dist`, environment variable `VITE_API_URL=https://<your-api-host>`.
 
 ---

@@ -8,11 +8,13 @@ forecasts. Cells are aligned to a global lattice so repeated requests hit the ca
 import math
 from datetime import datetime
 
+from django.conf import settings
+
 from . import geo, risk, weather
 from .routing import Route
 
 FRAME_HOURS = 48  # frames 0..48 inclusive
-MAX_CELLS = 260
+MAX_CELLS = settings.HEATMAP_MAX_CELLS
 MIN_STEP_DEG = 0.2
 CORRIDOR_MI = 35.0
 MILES_PER_DEG_LAT = 69.0

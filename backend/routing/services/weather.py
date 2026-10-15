@@ -31,7 +31,10 @@ VARIABLES = (
 )
 BATCH_SIZE = 100  # locations per request, keeps URLs well under length limits
 PARALLEL_REQUESTS = 4
-CACHE_TTL_S = 30 * 60
+CACHE_TTL_S = settings.WEATHER_CACHE_TTL_S
+# Fetch windows start on 6-hour boundaries, so trips planned within the same block share
+# cache entries; each series is then sliced to the hour the caller asked for.
+ALIGN_HOURS = 6
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,18 @@ class Series:
             return None
         return self._conditions(float(hour), hour + 1)
 
+    def slice(self, offset: int, hours: int) -> "Series":
+        end = offset + hours
+        return Series(
+            start=self.start + timedelta(hours=offset),
+            wind=self.wind[offset:end],
+            gust=self.gust[offset:end],
+            rain=self.rain[offset:end],
+            snow=self.snow[offset:end],
+            temp=self.temp[offset:end],
+            code=self.code[offset:end],
+        )
+
 
 def floor_hour(t: datetime) -> datetime:
     return t.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)
@@ -140,9 +155,12 @@ def _fetch_batch(points: list[tuple[float, float]], start: datetime, hours: int)
         resp = session.get(settings.OPEN_METEO_URL, params=params, timeout=30)
         data = resp.json()
     except Exception as exc:
-        raise UpstreamError(f"Weather service unavailable: {exc}") from exc
+        log.warning("Open-Meteo request failed: %s", exc)
+        raise UpstreamError("Weather service unavailable. Please try again shortly.") from exc
     if resp.status_code == 429:
-        raise UpstreamError("Weather service rate limit reached. Please try again in a minute.")
+        reason = data.get("reason") if isinstance(data, dict) else None
+        log.warning("Open-Meteo rate limit: %s", reason)
+        raise UpstreamError(f"Weather service limit reached ({reason or 'too many requests'}). Please try again later.")
     if resp.status_code != 200:
         reason = data.get("reason") if isinstance(data, dict) else None
         raise UpstreamError(f"Weather service error: {reason or resp.status_code}")
@@ -154,6 +172,9 @@ def fetch_series(
     points: list[tuple[float, float]], start: datetime, hours: int
 ) -> dict[tuple[float, float], Series]:
     """Hourly series starting at `start` (UTC, on the hour) for every distinct point."""
+    offset = start.hour % ALIGN_HOURS
+    requested_hours = hours
+    start, hours = start - timedelta(hours=offset), hours + ALIGN_HOURS
     unique = list(dict.fromkeys(points))
     keys = {p: _cache_key(start, hours, p) for p in unique}
     cached = cache.get_many(list(keys.values()))
@@ -170,4 +191,4 @@ def fetch_series(
                 fresh[keys[p]] = series
         cache.set_many(fresh, CACHE_TTL_S)
         log.info("Weather: %d cached, %d fetched in %d requests", len(unique) - len(missing), len(missing), len(batches))
-    return result
+    return {p: s.slice(offset, requested_hours) for p, s in result.items()}
