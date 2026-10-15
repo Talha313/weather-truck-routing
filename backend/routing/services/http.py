@@ -15,7 +15,8 @@ def _build_session() -> requests.Session:
     retry = Retry(
         total=2,
         backoff_factor=0.6,
-        status_forcelist=(429, 500, 502, 503, 504),
+        # 429 is left out: quick retries only burn more of a rate limit that resets in minutes.
+        status_forcelist=(500, 502, 503, 504),
         allowed_methods=("GET", "POST"),
     )
     adapter = HTTPAdapter(max_retries=retry, pool_maxsize=16)
